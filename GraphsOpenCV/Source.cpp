@@ -2,8 +2,8 @@
 #include "ImuModule.h"
 #include <chrono>
 #include <thread>
+#include <mutex>
 
-#pragma comment (lib, "opencv_world331d.lib")
 
 int main()
 {
@@ -19,21 +19,24 @@ int main()
 
 	const cv::Point center(75, 75);
 	double yaw = 0.;
-
+	std::mutex mutex;
 	std::thread imuThread(PololuImuV5::readOutImu, &imu, std::ref(a));
+	imuThread.detach();
 
 	while (true)
 	{
 		std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
 		cv::Mat background = cv::Mat::zeros(150, 150, cv::DataType<double>::type);
 		cv::circle(background, center, 50, 128);
+		mutex.lock();
 		quaternionToEulerianAngle(a, tmpRoll, tmpPitch, yaw);
+		mutex.unlock();
 		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count() << std::endl;
 
 		start = std::chrono::system_clock::now();
 		m1.at<double>(0, 0) = cos(yaw);
-		m1.at<double>(0, 1) = sin(yaw);
-		m1.at<double>(1, 0) = -sin(yaw);
+		m1.at<double>(0, 1) = -sin(yaw);
+		m1.at<double>(1, 0) = sin(yaw);
 		m1.at<double>(1, 1) = cos(yaw);
 		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count() << std::endl;
 
@@ -46,31 +49,6 @@ int main()
 
 		cv::waitKey(10);
 	}
-
-	/*while (true)
-	{
-		yaw += 0.01;
-		std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now();
-		cv::Mat background = cv::Mat::zeros(150, 150, cv::DataType<double>::type);
-		cv::circle(background, center, 50, 128);
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count() << std::endl;
-
-		start = std::chrono::system_clock::now();
-		m1.at<double>(0, 0) = cos(yaw);
-		m1.at<double>(0, 1) = sin(yaw);
-		m1.at<double>(1, 0) = -sin(yaw);
-		m1.at<double>(1, 1) = cos(yaw);
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count() << std::endl;
-
-		start = std::chrono::system_clock::now();
-		cv::Mat t = tmp * m1;
-		cv::arrowedLine(background, center - cv::Point(t.at<double>(0, 0) / 2, t.at<double>(0, 1) / 2),
-			center + cv::Point(t.at<double>(0, 0) / 2, t.at<double>(0, 1) / 2), 255);
-		cv::imshow("", background);
-		std::cout << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now() - start).count() << std::endl << "_____" << std::endl;
-
-		cv::waitKey(10);
-	}*/
 	cv::waitKey();
 	return 0;
 }
